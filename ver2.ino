@@ -1,7 +1,8 @@
-#define USE_SER_MTR 0
+#define USE_SER_MTR 0   // 0: disabled, 1: lat/long, 2: advanced info
 #define USE_WEB_INTF 1
 #define USE_UTC_OFFSET 1
-#define SCAN_INTERVAL 1000
+#define ENCODE_INTERVAL 1000
+#define ENABLE_JSON 1
 
 #define RX D7
 #define TX D6
@@ -12,7 +13,6 @@
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <WebSerial.h>
 
 const char *SSID = "aiphone25";
 const char *PASSWORD = "esp32s3neo6m";
@@ -36,8 +36,9 @@ GPSData gpsData = {};
 void connectToNetwork();
 void parseData();
 void printToSerial();
+void printToSerialAdv();
 void serveMapPage();
-void updateGPSData();
+void updateGPSData(AsyncWebServerRequest *request);
 
 void setup(){
 
@@ -57,13 +58,13 @@ void setup(){
     // (request) is an object declared in ESPAsyncWebServer.h
     // server.on: registers new web route for the server.
       // Accepts parameters: ([url path], [web request], [callback function])
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){ 
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
       serveMapPage(request);  // Serve the map page
     });
 
-    // alternate web route for json-formatted data
+    // Web route for json-formatted data that root URL takes data from
     server.on("/gps", HTTP_GET, [](AsyncWebServerRequest *request){
-      updateGPSData(request);  // Provide GPS data in JSON format
+      updateGPSData(request); 
     });
 
     // Start server (begin listening for incoming requests)
@@ -83,15 +84,11 @@ void loop() {
 
   if (gps.location.isUpdated()) {
     parseData();
-    if (USE_WEB_INTF) {
-      updateGPSData();  // Send the GPS data to the web page
-    }
-    if (USE_SER_MTR) {
-      printToSerial();
-    }
+    if (USE_SER_MTR == 1) printToSerial();
+    if (USE_SER_MTR == 2) printToSerialAdv();
   }
 
-  delay(SCAN_INTERVAL);
+  delay(ENCODE_INTERVAL);
 }
 
 void connectToNetwork() {
@@ -132,6 +129,10 @@ void parseData() {
 }
 
 void printToSerial() {
+  Serial.printf("Lat: %.6f, Lon: %.6f\n", gpsData.coords[0], gpsData.coords[1]);
+}
+
+void printToSerialAdv() {
   Serial.printf("\nLAT: %.6f\nLONG: %.6f\nSPEED(km/h): %.2f\nTime in PST: %d/%d/%d, %d:%d:%d\n",
                 gpsData.coords[0], gpsData.coords[1],
                 gpsData.speed,
@@ -156,13 +157,8 @@ void serveMapPage(AsyncWebServerRequest *request) {
   request->send(200, "text/html", html);
 }
 
-void updateGPSData() {
-  // No-argument version for `loop()`
-  // Serial.printf("Lat: %.6f, Lon: %.6f\n", gpsData.coords[0], gpsData.coords[1]);
-}
-
+// Called indirectly through web server framework
 void updateGPSData(AsyncWebServerRequest *request) {
-  // Argument version for HTTP request handling
   String json = "{";
   json += "\"lat\": " + String(gpsData.coords[0], 6) + ",";
   json += "\"lon\": " + String(gpsData.coords[1], 6);
