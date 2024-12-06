@@ -50,16 +50,23 @@ void setup(){
   gpsSerial.begin(GPS_BAUD, SERIAL_8N1, RX, TX);
 
   if (USE_WEB_INTF) {
+    
     connectToNetwork();
-    // Start web server
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    
+    // Setup web routes
+    // (request) is an object declared in ESPAsyncWebServer.h
+    // server.on: registers new web route for the server.
+      // Accepts parameters: ([url path], [web request], [callback function])
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){ 
       serveMapPage(request);  // Serve the map page
     });
 
+    // alternate web route for json-formatted data
     server.on("/gps", HTTP_GET, [](AsyncWebServerRequest *request){
       updateGPSData(request);  // Provide GPS data in JSON format
     });
 
+    // Start server (begin listening for incoming requests)
     server.begin();
   }
 
@@ -68,6 +75,8 @@ void setup(){
 }
 
 void loop() {
+
+  // Load data from GPS serial buffer
   while (gpsSerial.available()) {
     gps.encode(gpsSerial.read());
   }
@@ -130,6 +139,7 @@ void printToSerial() {
                 gpsData.time[0], gpsData.time[1], gpsData.time[2]);
 }
 
+// JS code embedded in the HTML, updates map every second
 void serveMapPage(AsyncWebServerRequest *request) {
   String html = "<!DOCTYPE html><html><head><title>GPS Location</title><link rel='stylesheet' href='https://unpkg.com/leaflet@1.7.1/dist/leaflet.css'/><script src='https://unpkg.com/leaflet@1.7.1/dist/leaflet.js'></script></head><body>";
   html += "<h2>GPS Location</h2>";
