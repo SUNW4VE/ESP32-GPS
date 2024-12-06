@@ -5,4 +5,4 @@ external libraries used:
  - TinyGPSPlus 1.0.3
  - AsyncTCP 1.1.4
  - ESP Async WebServer 1.2.4
- - WebSerial 1.4.0
+ - WebSerial 1.4.0 (main.ino only)
